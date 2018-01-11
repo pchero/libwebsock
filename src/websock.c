@@ -249,8 +249,6 @@ void libwebsock_cleanup_thread_list(evutil_socket_t sock, short what, void *arg)
 
 void libwebsock_shutdown(libwebsock_client_state *state) {
 	libwebsock_context *ctx = (libwebsock_context *) state->ctx;
-	struct event *ev;
-	struct timeval tv = { 1, 0 };
 	if (ctx->clients_HEAD == state) {
 		ctx->clients_HEAD = state->next;
 	}
@@ -266,19 +264,20 @@ void libwebsock_shutdown(libwebsock_client_state *state) {
 	}
 	bufferevent_free(state->bev);
 	//schedule cleanup.
-	ev = event_new(ctx->base, -1, 0, libwebsock_post_shutdown_cleanup,
-			(void *) state);
-	event_add(ev, &tv);
+
+	event_base_once(ctx->base, -1, EV_TIMEOUT, libwebsock_post_shutdown_cleanup, (void*)state, NULL);
 }
 
 void libwebsock_shutdown_after_send(struct bufferevent *bev, void *arg) {
-	struct event *ev;
-	struct timeval tv = { 0, 0 };
+	int ret;
+
 	libwebsock_client_state *state = (libwebsock_client_state *) arg;
 	libwebsock_context *ctx = state->ctx;
-	ev = event_new(ctx->base, -1, 0, libwebsock_shutdown_after_send_cb,
-			(void *) state);
-	event_add(ev, &tv);
+
+	ret = event_base_once(ctx->base, -1, EV_TIMEOUT, libwebsock_shutdown_after_send_cb, (void*)state, NULL);
+	if(ret == -1) {
+		fprintf(stderr, "Could not craete event.\n");
+	}
 }
 
 void libwebsock_shutdown_after_send_cb(evutil_socket_t fd, short what,
@@ -723,14 +722,13 @@ libwebsock_pthread_onmessage(void *arg) {
 	 may be finished by the time this thread's callback is done.
 	 Raising this signal makes libevent run */
 	raise(SIGUSR2);
-	struct timeval tv = { 0, 20000 };
-	struct event *ev;
 	libwebsock_context *ctx = (libwebsock_context *) wrapper->state->ctx;
 	thread_state_wrapper *twrapper = (thread_state_wrapper *) lws_malloc(sizeof(thread_state_wrapper));
 	twrapper->state = wrapper->state;
 	twrapper->thread = pthread_self();
-	ev = event_new(ctx->base, -1, 0, libwebsock_cleanup_thread_list, (void *) twrapper);
-	event_add(ev, &tv);
+
+	event_base_once(ctx->base, -1, EV_TIMEOUT, libwebsock_cleanup_thread_list, (void*)twrapper, NULL);
+
 #ifdef LIBWEBSOCK_DEBUG
 	fprintf(stderr, "[%s]: freeing msg->payload at address: %p\n", __func__,
 			msg->payload);
@@ -752,14 +750,13 @@ void *
 libwebsock_pthread_onopen(void *arg) {
 	libwebsock_client_state *state = arg;
 	state->onopen(state);
-	struct timeval tv = { 0, 20000 };
-	struct event *ev;
 	libwebsock_context *ctx = (libwebsock_context *) state->ctx;
 	thread_state_wrapper *twrapper = (thread_state_wrapper *) lws_malloc(sizeof(thread_state_wrapper));
 	twrapper->state = state;
 	twrapper->thread = pthread_self();
-	ev = event_new(ctx->base, -1, 0, libwebsock_cleanup_thread_list, (void *) twrapper);
-	event_add(ev, &tv);
+
+	event_base_once(ctx->base, -1, EV_TIMEOUT, libwebsock_cleanup_thread_list, (void*)twrapper, NULL);
+
 	return NULL;
 }
 
@@ -767,14 +764,12 @@ void *
 libwebsock_pthread_onclose(void *arg) {
 	libwebsock_client_state *state = arg;
 	state->onclose(state);
-	struct timeval tv = { 0, 20000 };
-	struct event *ev;
 	libwebsock_context *ctx = (libwebsock_context *) state->ctx;
 	thread_state_wrapper *twrapper = (thread_state_wrapper *) lws_malloc(sizeof(thread_state_wrapper));
 	twrapper->state = state;
 	twrapper->thread = pthread_self();
-	ev = event_new(ctx->base, -1, 0, libwebsock_cleanup_thread_list, (void *) twrapper);
-	event_add(ev, &tv);
+
+	event_base_once(ctx->base, -1, EV_TIMEOUT, libwebsock_cleanup_thread_list, (void*)twrapper, NULL);
 	return NULL;
 }
 
