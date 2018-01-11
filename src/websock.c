@@ -203,6 +203,7 @@ void libwebsock_cleanup_thread_list(evutil_socket_t sock, short what, void *arg)
 			if (current->prev == NULL && current->next == NULL) {
 				state->tlist = NULL;
 				pthread_mutex_unlock(&state->thread_lock);
+				lws_free(tinfo->thread);
 				lws_free(current);
 				lws_free(wrapper);
 				return;
