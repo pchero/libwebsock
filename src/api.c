@@ -252,10 +252,14 @@ libwebsock_init_flags(int flags)
   return ctx;
 }
 
-libwebsock_context *
-libwebsock_init_base(struct event_base *base, int flags)
+libwebsock_context* libwebsock_init_base(struct event_base *base, int flags)
 {
   libwebsock_context *ctx;
+
+  if(base == NULL) {
+    return NULL;
+  }
+
   ctx = (libwebsock_context *) lws_calloc(sizeof(libwebsock_context));
 
   ctx->base = base;

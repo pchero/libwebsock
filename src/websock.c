@@ -443,6 +443,7 @@ int libwebsock_send_fragment(libwebsock_client_state *state, const char *data,
 void libwebsock_handle_accept(evutil_socket_t listener, short event, void *arg) {
 	libwebsock_context *ctx = arg;
 	libwebsock_client_state *client_state;
+	int ret;
 	struct bufferevent *bev;
 	struct sockaddr_storage ss;
 	socklen_t slen = sizeof(ss);
@@ -452,8 +453,7 @@ void libwebsock_handle_accept(evutil_socket_t listener, short event, void *arg) 
 		return;
 	}
 
-	client_state = (libwebsock_client_state *) lws_calloc(
-			sizeof(libwebsock_client_state));
+	client_state = (libwebsock_client_state *) lws_calloc(sizeof(libwebsock_client_state));
 	client_state->sockfd = fd;
 	client_state->flags |= STATE_CONNECTING;
 	client_state->control_callback = ctx->control_callback;
@@ -461,17 +461,25 @@ void libwebsock_handle_accept(evutil_socket_t listener, short event, void *arg) 
 	client_state->onmessage = ctx->onmessage;
 	client_state->onclose = ctx->onclose;
 	client_state->onpong = ctx->onpong;
-	client_state->sa = (struct sockaddr_storage *) lws_malloc(
-			sizeof(struct sockaddr_storage));
+	client_state->sa = (struct sockaddr_storage *) lws_malloc(sizeof(struct sockaddr_storage));
 	client_state->ctx = (void *) ctx;
 	memcpy(client_state->sa, &ss, sizeof(struct sockaddr_storage));
-	evutil_make_socket_nonblocking(fd);
-	bev = bufferevent_socket_new(ctx->base, fd,
-			BEV_OPT_CLOSE_ON_FREE | BEV_OPT_THREADSAFE);
+	
+	ret = evutil_make_socket_nonblocking(fd);
+	if(ret != 0) {
+	  	fprintf(stderr, "Could not set socket to nonblocking. err[%d:%s]\n", errno, strerror(errno));
+	  	return;
+	}
+
+	bev = bufferevent_socket_new(ctx->base, fd, BEV_OPT_CLOSE_ON_FREE | BEV_OPT_THREADSAFE);
+	if(bev == NULL) {
+		fprintf(stderr, "Could not create bufferevent socket. err[%d:%s]\n", errno, strerror(errno));
+	  	return;
+	}
+	
 	client_state->bev = bev;
 	pthread_mutex_init(&client_state->thread_lock, NULL);
-	bufferevent_setcb(bev, libwebsock_handshake, libwebsock_handle_send,
-			libwebsock_do_event, (void *) client_state);
+	bufferevent_setcb(bev, libwebsock_handshake, libwebsock_handle_send, libwebsock_do_event, (void *) client_state);
 	bufferevent_enable(bev, EV_READ | EV_WRITE);
 }
 
