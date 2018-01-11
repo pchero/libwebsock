@@ -144,7 +144,7 @@ libwebsock_wait(libwebsock_context *ctx)
 }
 
 void
-libwebsock_bind(libwebsock_context *ctx, char *listen_host, char *port)
+libwebsock_bind(libwebsock_context *ctx, const char *listen_host, const char *port)
 {
   struct addrinfo hints, *servinfo, *p;
   evutil_socket_t sockfd;
