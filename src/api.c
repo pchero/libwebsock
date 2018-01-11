@@ -255,6 +255,7 @@ libwebsock_init_flags(int flags)
 libwebsock_context* libwebsock_init_base(struct event_base *base, int flags)
 {
   libwebsock_context *ctx;
+  struct event* sig_event;
 
   if(base == NULL) {
     return NULL;
@@ -273,6 +274,9 @@ libwebsock_context* libwebsock_init_base(struct event_base *base, int flags)
   WSADATA WSAData;
   WSAStartup(0x101, &WSAData);
 #endif
+
+  sig_event = evsignal_new(ctx->base, SIGUSR2, libwebsock_handle_signal, (void *)ctx);
+  event_add(sig_event, NULL);
 
 
   return ctx;
