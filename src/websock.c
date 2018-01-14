@@ -180,7 +180,7 @@ libwebsock_insert_into_thread_list(libwebsock_client_state *state, pthread_t *th
 
 void libwebsock_cleanup_thread_list(evutil_socket_t sock, short what, void *arg) {
 	thread_state_wrapper *wrapper = arg;
-	thread_info *tinfo, *current = NULL;
+	thread_info *tinfo, *current, *next = NULL;
 	pthread_t current_thread;
 	libwebsock_client_state *state = wrapper->state;
 #ifdef LIBWEBSOCK_DEBUG
@@ -196,8 +196,11 @@ void libwebsock_cleanup_thread_list(evutil_socket_t sock, short what, void *arg)
 #endif
 	pthread_join(wrapper->thread, NULL);
 
-	for (tinfo = state->tlist; tinfo != NULL; tinfo = tinfo->next) {
+	for (tinfo = state->tlist; tinfo != NULL; ) {
+
 		current = tinfo;
+		next = current->next;
+
 		current_thread = *((pthread_t *)tinfo->thread);
 		if (pthread_equal(current_thread, wrapper->thread)) {
 			if (current->prev == NULL && current->next == NULL) {
@@ -240,6 +243,8 @@ void libwebsock_cleanup_thread_list(evutil_socket_t sock, short what, void *arg)
 			}
 			lws_free(current);
 		}
+
+		tinfo = next;
 	}
 	pthread_mutex_unlock(&state->thread_lock);
 #ifdef LIBWEBSOCK_DEBUG
